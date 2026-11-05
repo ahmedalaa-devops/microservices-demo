@@ -88,7 +88,7 @@ pipeline {
               -Dsonar.projectVersion=${env.TAG} \
               -Dsonar.sources=src \
               -Dsonar.java.binaries=. \
-              -Dsonar.exclusions='**/node_modules/**,**/genproto/**,**/*.pb.go,**/*_pb2*.py,**/vendor/**,**/bin/**,**/obj/**'"""
+              -Dsonar.exclusions='**/node_modules/**,**/genproto/**,**/*.pb.go,**/*_pb2*.py,**/vendor/**,**/bin/**,**/obj/**,**/*.js,**/*.ts,**/*.css'"""
           }
         }
       }
