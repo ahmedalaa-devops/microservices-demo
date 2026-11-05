@@ -13,7 +13,9 @@ pipeline {
     choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'prod'], description: 'Target namespace')
     string(name: 'IMAGE_TAG', defaultValue: '', description: 'Blank = git short SHA ("latest" is rejected)')
     string(name: 'REPLICAS', defaultValue: '1', description: 'Replicas per service')
-    booleanParam(name: 'BUILD_IMAGES', defaultValue: true, description: 'Untick to redeploy an existing tag without building')
+    booleanParam(name: 'BUILD_IMAGES', defaultValue: true, description: 'Untick to redeploy an existing tag without touching images')
+    booleanParam(name: 'USE_LOCAL_IMAGES', defaultValue: true, description: 'Reuse images already built on this VM (<service>:<LOCAL_TAG>) instead of rebuilding')
+    string(name: 'LOCAL_TAG', defaultValue: 'optimized', description: 'Tag of the local images, e.g. adservice:optimized')
   }
 
   environment {
@@ -41,7 +43,7 @@ pipeline {
       }
     }
 
-    // Images already in Nexus with this tag are skipped, so a re-run after a failure continues where it stopped.
+    // Per service: already in Nexus -> skip; local image <service>:<LOCAL_TAG> exists -> tag + push (no build); otherwise build + push.
     stage('Build and Push to Nexus') {
       when { expression { params.BUILD_IMAGES } }
       steps {
@@ -56,11 +58,16 @@ pipeline {
                 echo "=== $s:${TAG} already in Nexus, skipping ==="
                 continue
               fi
-              ctx="src/$s"; if [ "$s" = "cartservice" ]; then ctx="src/cartservice/src"; fi
-              echo "=== build $s:${TAG} ==="
-              docker build --provenance=false --label org.opencontainers.image.revision=${GIT_SHA} -t $img "$ctx"
+              if [ "${USE_LOCAL_IMAGES}" = "true" ] && docker image inspect "$s:${LOCAL_TAG}" >/dev/null 2>&1; then
+                echo "=== $s: using local image $s:${LOCAL_TAG} (no rebuild) ==="
+                docker tag "$s:${LOCAL_TAG}" $img
+              else
+                ctx="src/$s"; if [ "$s" = "cartservice" ]; then ctx="src/cartservice/src"; fi
+                echo "=== build $s:${TAG} ==="
+                docker build --provenance=false --label org.opencontainers.image.revision=${GIT_SHA} -t $img "$ctx"
+              fi
               echo "=== push $s:${TAG} ==="
-              docker push $img
+              docker push $img || { echo "retry 1"; sleep 20; docker push $img; } || { echo "retry 2"; sleep 40; docker push $img; }
               docker rmi $img >/dev/null 2>&1 || true
               free=$(df --output=avail -BG / | tail -1 | tr -dc 0-9)
               if [ "$free" -lt 6 ]; then echo "low disk (${free}G), pruning build cache"; docker builder prune -af >/dev/null; fi
