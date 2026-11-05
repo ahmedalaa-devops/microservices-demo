@@ -1,0 +1,176 @@
+{{- if eq (toString .Values.global.tag) "latest" }}{{ fail "the 'latest' tag is not allowed" }}{{ end }}
+{{- range $name, $svc := .Values.services }}
+{{- if $svc.enabled }}
+{{- $port := int $svc.port }}
+{{- $probe := $svc.probe | default "grpc" }}
+{{- $hpaOn := dig "hpa" "enabled" false $svc }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    {{- include "ob.labels" $ | nindent 4 }}
+spec:
+  {{- if not $hpaOn }}
+  replicas: {{ $svc.replicas | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+        {{- include "ob.labels" $ | nindent 8 }}
+    spec:
+      imagePullSecrets:
+        - name: {{ $.Values.global.imagePullSecret }}
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - {key: kubernetes.io/os, operator: In, values: [linux]}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - {key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: {{ $name }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: {{ $name }}
+      containers:
+        - name: server
+          image: "{{ $.Values.global.registry }}/{{ $name }}:{{ required "global.tag is required" $.Values.global.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{ $port }}
+          {{- with $svc.env }}
+          env:
+            {{- range $k, $v := . }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if eq $probe "grpc" }}
+          startupProbe:
+            grpc: {port: {{ $port }}}
+            periodSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            grpc: {port: {{ $port }}}
+            periodSeconds: 5
+          livenessProbe:
+            grpc: {port: {{ $port }}}
+            periodSeconds: 10
+          {{- else if eq $probe "http" }}
+          startupProbe:
+            httpGet:
+              path: /_healthz
+              port: {{ $port }}
+              httpHeaders:
+                - {name: Cookie, value: "shop_session-id=x-readiness-probe"}
+            periodSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            httpGet:
+              path: /_healthz
+              port: {{ $port }}
+              httpHeaders:
+                - {name: Cookie, value: "shop_session-id=x-readiness-probe"}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /_healthz
+              port: {{ $port }}
+              httpHeaders:
+                - {name: Cookie, value: "shop_session-id=x-readiness-probe"}
+            periodSeconds: 10
+          {{- end }}
+          resources:
+            {{- toYaml ($svc.resources | default $.Values.defaultResources) | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+{{- if ne (toString $svc.expose) "false" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    {{- include "ob.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ $name }}
+  ports:
+    - name: {{ ternary "http" "grpc" (eq $probe "http") }}
+      port: {{ $svc.servicePort | default $port }}
+      targetPort: {{ $port }}
+{{- end }}
+{{- if $hpaOn }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    {{- include "ob.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicas: {{ dig "hpa" "minReplicas" 2 $svc | int }}
+  maxReplicas: {{ dig "hpa" "maxReplicas" 4 $svc | int }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ dig "hpa" "cpu" 70 $svc | int }}
+{{- end }}
+{{- if dig "pdb" "enabled" false $svc }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    {{- include "ob.labels" $ | nindent 4 }}
+spec:
+  minAvailable: {{ dig "pdb" "minAvailable" 1 $svc | int }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}

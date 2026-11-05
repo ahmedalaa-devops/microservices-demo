@@ -1,0 +1,121 @@
+global:
+  registry: 192.168.206.150:5000/online-boutique   # Nexus Docker repo
+  tag: ""                                          # REQUIRED, set by the pipeline (never "latest")
+  imagePullSecret: nexus-pull
+  environment: dev
+
+defaultResources:
+  requests: {cpu: 100m, memory: 64Mi}
+  limits:   {cpu: 300m, memory: 256Mi}
+
+redis:
+  enabled: true
+  image: redis:7-alpine          # public image, not custom-built. Mirror it into Nexus if you want zero public pulls.
+  storage: 1Gi
+  storageClassName: ""           # "" = cluster default (minikube: standard)
+  resources:
+    requests: {cpu: 100m, memory: 64Mi}
+    limits:   {cpu: 300m, memory: 256Mi}
+
+ingress:                         # configured in the Traefik / HTTPS step
+  enabled: false
+  className: traefik
+  host: shop.example.local
+  tlsSecret: ""                  # e.g. online-boutique-tls
+  annotations: {}
+
+# Per-service options:
+#   port (container), servicePort (Service port, default = port), probe: grpc|http|none,
+#   replicas, env, resources, expose (false = no Service),
+#   hpa: {enabled, minReplicas, maxReplicas, cpu}   pdb: {enabled, minAvailable}
+services:
+  adservice:
+    enabled: true
+    port: 9555
+    env: {PORT: "9555"}
+    resources:
+      requests: {cpu: 200m, memory: 180Mi}
+      limits:   {cpu: 400m, memory: 400Mi}
+
+  cartservice:
+    enabled: true
+    port: 7070
+    env: {REDIS_ADDR: "redis-cart:6379"}
+    resources:
+      requests: {cpu: 100m, memory: 96Mi}
+      limits:   {cpu: 300m, memory: 256Mi}
+
+  checkoutservice:
+    enabled: true
+    port: 5050
+    env:
+      PORT: "5050"
+      PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
+      SHIPPING_SERVICE_ADDR: "shippingservice:50051"
+      PAYMENT_SERVICE_ADDR: "paymentservice:50051"
+      EMAIL_SERVICE_ADDR: "emailservice:5000"
+      CURRENCY_SERVICE_ADDR: "currencyservice:7000"
+      CART_SERVICE_ADDR: "cartservice:7070"
+
+  currencyservice:
+    enabled: true
+    port: 7000
+    env: {PORT: "7000", DISABLE_PROFILER: "1"}
+
+  emailservice:
+    enabled: true
+    port: 8080
+    servicePort: 5000
+    env: {PORT: "8080", DISABLE_PROFILER: "1"}
+
+  frontend:
+    enabled: true
+    port: 8080
+    servicePort: 80
+    probe: http
+    env:
+      PORT: "8080"
+      PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
+      CURRENCY_SERVICE_ADDR: "currencyservice:7000"
+      CART_SERVICE_ADDR: "cartservice:7070"
+      RECOMMENDATION_SERVICE_ADDR: "recommendationservice:8080"
+      SHIPPING_SERVICE_ADDR: "shippingservice:50051"
+      CHECKOUT_SERVICE_ADDR: "checkoutservice:5050"
+      AD_SERVICE_ADDR: "adservice:9555"
+      ENABLE_PROFILER: "0"
+
+  loadgenerator:                 # off by default; enable for HPA tests
+    enabled: false
+    port: 8089
+    probe: none
+    expose: false
+    env: {FRONTEND_ADDR: "frontend:80", USERS: "5"}
+    resources:
+      requests: {cpu: 200m, memory: 256Mi}
+      limits:   {cpu: 500m, memory: 512Mi}
+
+  paymentservice:
+    enabled: true
+    port: 50051
+    env: {PORT: "50051", DISABLE_PROFILER: "1"}
+
+  productcatalogservice:
+    enabled: true
+    port: 3550
+    env: {PORT: "3550"}
+
+  recommendationservice:
+    enabled: true
+    port: 8080
+    env:
+      PORT: "8080"
+      PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
+      DISABLE_PROFILER: "1"
+    resources:
+      requests: {cpu: 100m, memory: 220Mi}
+      limits:   {cpu: 400m, memory: 450Mi}
+
+  shippingservice:
+    enabled: true
+    port: 50051
+    env: {PORT: "50051"}

@@ -1,0 +1,17 @@
+# Staging: 2 replicas for critical services, HPA on the frontend
+global:
+  environment: staging
+services:
+  frontend:
+    replicas: 2
+    hpa: {enabled: true, minReplicas: 2, maxReplicas: 4, cpu: 70}
+    pdb: {enabled: true, minAvailable: 1}
+  checkoutservice:
+    replicas: 2
+    pdb: {enabled: true, minAvailable: 1}
+  cartservice:
+    replicas: 2
+    pdb: {enabled: true, minAvailable: 1}
+  productcatalogservice:
+    replicas: 2
+    pdb: {enabled: true, minAvailable: 1}

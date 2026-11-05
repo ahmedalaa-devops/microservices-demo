@@ -1,0 +1,21 @@
+# Production: replicas + HPA + PDB on every critical service
+global:
+  environment: prod
+redis:
+  storage: 2Gi
+services:
+  frontend:
+    hpa: {enabled: true, minReplicas: 2, maxReplicas: 5, cpu: 70}
+    pdb: {enabled: true, minAvailable: 1}
+  checkoutservice:
+    hpa: {enabled: true, minReplicas: 2, maxReplicas: 4, cpu: 70}
+    pdb: {enabled: true, minAvailable: 1}
+  cartservice:
+    replicas: 2
+    pdb: {enabled: true, minAvailable: 1}
+  productcatalogservice:
+    replicas: 2
+    pdb: {enabled: true, minAvailable: 1}
+  currencyservice:
+    replicas: 2
+    pdb: {enabled: true, minAvailable: 1}
