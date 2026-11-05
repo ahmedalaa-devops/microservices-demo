@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adservice
+  labels: {app: adservice}
+spec:
+  replicas: __REPLICAS__
+  selector:
+    matchLabels: {app: adservice}
+  template:
+    metadata:
+      labels: {app: adservice}
+    spec:
+      imagePullSecrets:
+        - name: nexus-pull
+      terminationGracePeriodSeconds: 5
+      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      containers:
+        - name: server
+          image: __REGISTRY__/adservice:__TAG__
+          ports:
+            - containerPort: 9555
+          env:
+            - {name: PORT, value: "9555"}
+          startupProbe:
+            grpc: {port: 9555}
+            periodSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            grpc: {port: 9555}
+            periodSeconds: 5
+          livenessProbe:
+            grpc: {port: 9555}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 200m, memory: 180Mi}
+            limits: {cpu: 400m, memory: 400Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adservice
+  labels: {app: adservice}
+spec:
+  type: ClusterIP
+  selector: {app: adservice}
+  ports:
+    - {name: grpc, port: 9555, targetPort: 9555}

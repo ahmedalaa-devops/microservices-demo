@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendationservice
+  labels: {app: recommendationservice}
+spec:
+  replicas: __REPLICAS__
+  selector:
+    matchLabels: {app: recommendationservice}
+  template:
+    metadata:
+      labels: {app: recommendationservice}
+    spec:
+      imagePullSecrets:
+        - name: nexus-pull
+      terminationGracePeriodSeconds: 5
+      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      containers:
+        - name: server
+          image: __REGISTRY__/recommendationservice:__TAG__
+          ports:
+            - containerPort: 8080
+          env:
+            - {name: PORT, value: "8080"}
+            - {name: PRODUCT_CATALOG_SERVICE_ADDR, value: "productcatalogservice:3550"}
+            - {name: DISABLE_PROFILER, value: "1"}
+          startupProbe:
+            grpc: {port: 8080}
+            periodSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            grpc: {port: 8080}
+            periodSeconds: 5
+          livenessProbe:
+            grpc: {port: 8080}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 220Mi}
+            limits: {cpu: 400m, memory: 450Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommendationservice
+  labels: {app: recommendationservice}
+spec:
+  type: ClusterIP
+  selector: {app: recommendationservice}
+  ports:
+    - {name: grpc, port: 8080, targetPort: 8080}

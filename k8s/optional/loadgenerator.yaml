@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgenerator
+  labels: {app: loadgenerator}
+spec:
+  replicas: __REPLICAS__
+  selector:
+    matchLabels: {app: loadgenerator}
+  template:
+    metadata:
+      labels: {app: loadgenerator}
+    spec:
+      imagePullSecrets:
+        - name: nexus-pull
+      terminationGracePeriodSeconds: 5
+      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      containers:
+        - name: server
+          image: __REGISTRY__/loadgenerator:__TAG__
+          ports:
+            - containerPort: 8089
+          env:
+            - {name: FRONTEND_ADDR, value: "frontend:80"}
+            - {name: USERS, value: "5"}
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}

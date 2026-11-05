@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: currencyservice
+  labels: {app: currencyservice}
+spec:
+  replicas: __REPLICAS__
+  selector:
+    matchLabels: {app: currencyservice}
+  template:
+    metadata:
+      labels: {app: currencyservice}
+    spec:
+      imagePullSecrets:
+        - name: nexus-pull
+      terminationGracePeriodSeconds: 5
+      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      containers:
+        - name: server
+          image: __REGISTRY__/currencyservice:__TAG__
+          ports:
+            - containerPort: 7000
+          env:
+            - {name: PORT, value: "7000"}
+            - {name: DISABLE_PROFILER, value: "1"}
+          startupProbe:
+            grpc: {port: 7000}
+            periodSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            grpc: {port: 7000}
+            periodSeconds: 5
+          livenessProbe:
+            grpc: {port: 7000}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: 300m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: currencyservice
+  labels: {app: currencyservice}
+spec:
+  type: ClusterIP
+  selector: {app: currencyservice}
+  ports:
+    - {name: grpc, port: 7000, targetPort: 7000}

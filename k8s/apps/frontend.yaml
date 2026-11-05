@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels: {app: frontend}
+spec:
+  replicas: __REPLICAS__
+  selector:
+    matchLabels: {app: frontend}
+  template:
+    metadata:
+      labels: {app: frontend}
+    spec:
+      imagePullSecrets:
+        - name: nexus-pull
+      terminationGracePeriodSeconds: 5
+      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      containers:
+        - name: server
+          image: __REGISTRY__/frontend:__TAG__
+          ports:
+            - containerPort: 8080
+          env:
+            - {name: PORT, value: "8080"}
+            - {name: PRODUCT_CATALOG_SERVICE_ADDR, value: "productcatalogservice:3550"}
+            - {name: CURRENCY_SERVICE_ADDR, value: "currencyservice:7000"}
+            - {name: CART_SERVICE_ADDR, value: "cartservice:7070"}
+            - {name: RECOMMENDATION_SERVICE_ADDR, value: "recommendationservice:8080"}
+            - {name: SHIPPING_SERVICE_ADDR, value: "shippingservice:50051"}
+            - {name: CHECKOUT_SERVICE_ADDR, value: "checkoutservice:5050"}
+            - {name: AD_SERVICE_ADDR, value: "adservice:9555"}
+            - {name: ENABLE_PROFILER, value: "0"}
+          startupProbe:
+            httpGet:
+              path: /_healthz
+              port: 8080
+              httpHeaders:
+                - {name: Cookie, value: "shop_session-id=x-readiness-probe"}
+            periodSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            httpGet:
+              path: /_healthz
+              port: 8080
+              httpHeaders:
+                - {name: Cookie, value: "shop_session-id=x-readiness-probe"}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /_healthz
+              port: 8080
+              httpHeaders:
+                - {name: Cookie, value: "shop_session-id=x-readiness-probe"}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: 300m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels: {app: frontend}
+spec:
+  type: ClusterIP
+  selector: {app: frontend}
+  ports:
+    - {name: http, port: 80, targetPort: 8080}
