@@ -5,6 +5,9 @@ metadata:
   labels: {app: recommendationservice}
 spec:
   replicas: __REPLICAS__
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels: {app: recommendationservice}
   template:
@@ -42,6 +45,12 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: recommendationservice-data
 ---
 apiVersion: v1
 kind: Service

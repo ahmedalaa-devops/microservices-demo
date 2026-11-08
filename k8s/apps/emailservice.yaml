@@ -5,6 +5,9 @@ metadata:
   labels: {app: emailservice}
 spec:
   replicas: __REPLICAS__
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels: {app: emailservice}
   template:
@@ -41,6 +44,12 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: emailservice-data
 ---
 apiVersion: v1
 kind: Service

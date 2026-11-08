@@ -5,6 +5,9 @@ metadata:
   labels: {app: checkoutservice}
 spec:
   replicas: __REPLICAS__
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels: {app: checkoutservice}
   template:
@@ -46,6 +49,12 @@ spec:
             privileged: false
             readOnlyRootFilesystem: true
             capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: checkoutservice-data
 ---
 apiVersion: v1
 kind: Service
