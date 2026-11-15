@@ -57,7 +57,7 @@ spec:
                 - {name: Cookie, value: "shop_session-id=x-readiness-probe"}
             periodSeconds: 10
           resources:
-            requests: {cpu: 100m, memory: 64Mi}
+            requests: {cpu: 25m, memory: 64Mi}
             limits: {cpu: 300m, memory: 256Mi}
           securityContext:
             allowPrivilegeEscalation: false

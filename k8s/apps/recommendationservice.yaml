@@ -38,7 +38,7 @@ spec:
             grpc: {port: 8080}
             periodSeconds: 10
           resources:
-            requests: {cpu: 100m, memory: 220Mi}
+            requests: {cpu: 25m, memory: 220Mi}
             limits: {cpu: 400m, memory: 450Mi}
           securityContext:
             allowPrivilegeEscalation: false
