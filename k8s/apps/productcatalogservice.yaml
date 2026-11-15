@@ -2,49 +2,62 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: productcatalogservice
-  labels: {app: productcatalogservice}
 spec:
   replicas: __REPLICAS__
   strategy:
     type: Recreate
-    rollingUpdate: null
   selector:
-    matchLabels: {app: productcatalogservice}
+    matchLabels:
+      app: productcatalogservice
   template:
     metadata:
-      labels: {app: productcatalogservice}
+      labels:
+        app: productcatalogservice
     spec:
       imagePullSecrets:
         - name: nexus-pull
       terminationGracePeriodSeconds: 5
-      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
       containers:
         - name: server
           image: __REGISTRY__/productcatalogservice:__TAG__
           ports:
             - containerPort: 3550
           env:
-            - {name: PORT, value: "3550"}
+            - name: PORT
+              value: "3550"
           startupProbe:
-            grpc: {port: 3550}
+            grpc:
+              port: 3550
             periodSeconds: 5
             failureThreshold: 40
           readinessProbe:
-            grpc: {port: 3550}
+            grpc:
+              port: 3550
             periodSeconds: 5
           livenessProbe:
-            grpc: {port: 3550}
-            periodSeconds: 10
+            grpc:
+              port: 3550
           resources:
-            requests: {cpu: 25m, memory: 64Mi}
-            limits: {cpu: 300m, memory: 256Mi}
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
-            privileged: false
             readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
-            - {name: data, mountPath: /data}
+            - name: data
+              mountPath: /data
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -54,9 +67,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: productcatalogservice
-  labels: {app: productcatalogservice}
 spec:
-  type: ClusterIP
-  selector: {app: productcatalogservice}
+  selector:
+    app: productcatalogservice
   ports:
-    - {name: grpc, port: 3550, targetPort: 3550}
+    - port: 3550
+      targetPort: 3550

@@ -2,49 +2,62 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: shippingservice
-  labels: {app: shippingservice}
 spec:
   replicas: __REPLICAS__
   strategy:
     type: Recreate
-    rollingUpdate: null
   selector:
-    matchLabels: {app: shippingservice}
+    matchLabels:
+      app: shippingservice
   template:
     metadata:
-      labels: {app: shippingservice}
+      labels:
+        app: shippingservice
     spec:
       imagePullSecrets:
         - name: nexus-pull
       terminationGracePeriodSeconds: 5
-      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
       containers:
         - name: server
           image: __REGISTRY__/shippingservice:__TAG__
           ports:
             - containerPort: 50051
           env:
-            - {name: PORT, value: "50051"}
+            - name: PORT
+              value: "50051"
           startupProbe:
-            grpc: {port: 50051}
+            grpc:
+              port: 50051
             periodSeconds: 5
             failureThreshold: 40
           readinessProbe:
-            grpc: {port: 50051}
+            grpc:
+              port: 50051
             periodSeconds: 5
           livenessProbe:
-            grpc: {port: 50051}
-            periodSeconds: 10
+            grpc:
+              port: 50051
           resources:
-            requests: {cpu: 25m, memory: 64Mi}
-            limits: {cpu: 300m, memory: 256Mi}
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
-            privileged: false
             readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
-            - {name: data, mountPath: /data}
+            - name: data
+              mountPath: /data
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -54,9 +67,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: shippingservice
-  labels: {app: shippingservice}
 spec:
-  type: ClusterIP
-  selector: {app: shippingservice}
+  selector:
+    app: shippingservice
   ports:
-    - {name: grpc, port: 50051, targetPort: 50051}
+    - port: 50051
+      targetPort: 50051

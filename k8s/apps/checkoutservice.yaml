@@ -2,55 +2,74 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: checkoutservice
-  labels: {app: checkoutservice}
 spec:
   replicas: __REPLICAS__
   strategy:
     type: Recreate
-    rollingUpdate: null
   selector:
-    matchLabels: {app: checkoutservice}
+    matchLabels:
+      app: checkoutservice
   template:
     metadata:
-      labels: {app: checkoutservice}
+      labels:
+        app: checkoutservice
     spec:
       imagePullSecrets:
         - name: nexus-pull
       terminationGracePeriodSeconds: 5
-      securityContext: {fsGroup: 1000, runAsGroup: 1000, runAsNonRoot: true, runAsUser: 1000}
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
       containers:
         - name: server
           image: __REGISTRY__/checkoutservice:__TAG__
           ports:
             - containerPort: 5050
           env:
-            - {name: PORT, value: "5050"}
-            - {name: PRODUCT_CATALOG_SERVICE_ADDR, value: "productcatalogservice:3550"}
-            - {name: SHIPPING_SERVICE_ADDR, value: "shippingservice:50051"}
-            - {name: PAYMENT_SERVICE_ADDR, value: "paymentservice:50051"}
-            - {name: EMAIL_SERVICE_ADDR, value: "emailservice:5000"}
-            - {name: CURRENCY_SERVICE_ADDR, value: "currencyservice:7000"}
-            - {name: CART_SERVICE_ADDR, value: "cartservice:7070"}
+            - name: PORT
+              value: "5050"
+            - name: PRODUCT_CATALOG_SERVICE_ADDR
+              value: productcatalogservice:3550
+            - name: SHIPPING_SERVICE_ADDR
+              value: shippingservice:50051
+            - name: PAYMENT_SERVICE_ADDR
+              value: paymentservice:50051
+            - name: EMAIL_SERVICE_ADDR
+              value: emailservice:5000
+            - name: CURRENCY_SERVICE_ADDR
+              value: currencyservice:7000
+            - name: CART_SERVICE_ADDR
+              value: cartservice:7070
           startupProbe:
-            grpc: {port: 5050}
+            grpc:
+              port: 5050
             periodSeconds: 5
             failureThreshold: 40
           readinessProbe:
-            grpc: {port: 5050}
+            grpc:
+              port: 5050
             periodSeconds: 5
           livenessProbe:
-            grpc: {port: 5050}
-            periodSeconds: 10
+            grpc:
+              port: 5050
           resources:
-            requests: {cpu: 25m, memory: 64Mi}
-            limits: {cpu: 300m, memory: 256Mi}
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
-            privileged: false
             readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
-            - {name: data, mountPath: /data}
+            - name: data
+              mountPath: /data
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -60,9 +79,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: checkoutservice
-  labels: {app: checkoutservice}
 spec:
-  type: ClusterIP
-  selector: {app: checkoutservice}
+  selector:
+    app: checkoutservice
   ports:
-    - {name: grpc, port: 5050, targetPort: 5050}
+    - port: 5050
+      targetPort: 5050

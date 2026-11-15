@@ -2,18 +2,23 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: redis-cart
-  labels: {app: redis-cart}
 spec:
   serviceName: redis-cart
   replicas: 1
   selector:
-    matchLabels: {app: redis-cart}
+    matchLabels:
+      app: redis-cart
   template:
     metadata:
-      labels: {app: redis-cart}
+      labels:
+        app: redis-cart
     spec:
       terminationGracePeriodSeconds: 10
-      securityContext: {fsGroup: 999, runAsGroup: 999, runAsUser: 999, runAsNonRoot: true}
+      securityContext:
+        fsGroup: 999
+        runAsGroup: 999
+        runAsUser: 999
+        runAsNonRoot: true
       initContainers:
         - name: fix-volume-permissions
           image: busybox:1.36
@@ -36,29 +41,43 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
-          args: ["--appendonly", "yes", "--save", "60", "1"]
+          args:
+            - --appendonly
+            - 'yes'
+            - --save
+            - "60"
+            - "1"
           ports:
             - containerPort: 6379
           readinessProbe:
-            tcpSocket: {port: 6379}
+            tcpSocket:
+              port: 6379
             periodSeconds: 5
           livenessProbe:
-            tcpSocket: {port: 6379}
-            periodSeconds: 10
+            tcpSocket:
+              port: 6379
           resources:
-            requests: {cpu: 25m, memory: 64Mi}
-            limits: {cpu: 300m, memory: 256Mi}
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
-            - {name: data, mountPath: /data}
+            - name: data
+              mountPath: /data
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
-        accessModes: [ReadWriteOnce]
+        accessModes:
+          - ReadWriteOnce
         resources:
           requests:
             storage: 1Gi
@@ -67,9 +86,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis-cart
-  labels: {app: redis-cart}
 spec:
-  type: ClusterIP
-  selector: {app: redis-cart}
+  selector:
+    app: redis-cart
   ports:
-    - {name: redis, port: 6379, targetPort: 6379}
+    - port: 6379
+      targetPort: 6379
