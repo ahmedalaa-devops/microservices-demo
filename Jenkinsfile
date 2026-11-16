@@ -32,6 +32,7 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
+        sh 'rm -f .deploy_started'
         script {
           env.GIT_SHA = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
           env.TAG = params.IMAGE_TAG?.trim() ? params.IMAGE_TAG.trim() : env.GIT_SHA
@@ -173,6 +174,10 @@ pipeline {
               for d in $(kubectl get deploy -n ${NAMESPACE} -o name 2>/dev/null); do
                 kubectl rollout undo $d -n ${NAMESPACE} || true
               done
+              for d in $(kubectl get deploy -n ${NAMESPACE} -o name 2>/dev/null); do
+                kubectl rollout status $d -n ${NAMESPACE} --timeout=180s || echo "WARNING: $d did not recover"
+              done
+              kubectl get pods -n ${NAMESPACE}
             '''
           }
         }
