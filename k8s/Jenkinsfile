@@ -136,6 +136,7 @@ pipeline {
               echo "===== Scanning $IMAGE ====="
 
               trivy image \
+                --timeout 15m \
                 --insecure \
                 --username "$NX_USER" \
                 --password "$NX_PASS" \
