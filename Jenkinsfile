@@ -79,6 +79,28 @@ pipeline {
       }
     }
 
+    stage('Check images in Nexus') {
+      when { expression { !params.BUILD_IMAGES } }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NX_USER', passwordVariable: 'NX_PASS')]) {
+          sh '''#!/bin/bash
+            code=$(curl -s -o /dev/null -w "%{http_code}" -u "$NX_USER:$NX_PASS" "http://${REGISTRY}/v2/")
+            if [ "$code" != "200" ]; then echo "Nexus is not usable from Jenkins (HTTP $code). Not touching the cluster."; exit 1; fi
+            ACCEPT='Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+            missing=0
+            for s in ${SERVICE_LIST}; do
+              if [ "$s" = "loadgenerator" ]; then continue; fi
+              if ! curl -sfI -u "$NX_USER:$NX_PASS" -H "$ACCEPT" "http://${REGISTRY}/v2/${REPO}/$s/manifests/${TAG}" >/dev/null; then
+                echo "MISSING in Nexus: $s:${TAG}"; missing=1
+              fi
+            done
+            if [ $missing -ne 0 ]; then echo "Set IMAGE_TAG to an existing tag, or tick BUILD_IMAGES"; exit 1; fi
+            echo "All images found in Nexus for tag ${TAG}"
+          '''
+        }
+      }
+    }
+
     stage('Deploy (Deployments + Services)') {
       steps {
         withCredentials([
