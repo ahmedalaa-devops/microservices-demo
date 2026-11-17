@@ -32,6 +32,17 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
+        sh """#!/bin/bash
+          echo "===== PIPELINE NODE ====="
+          hostname
+          whoami
+          echo "NODE_NAME=\$NODE_NAME"
+          echo "WORKSPACE=\$WORKSPACE"
+
+          echo "===== TRIVY ====="
+          command -v trivy
+          trivy --version
+        """
         sh 'rm -f .deploy_started'
         script {
           env.GIT_SHA = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
